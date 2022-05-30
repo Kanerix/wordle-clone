@@ -57,7 +57,7 @@ impl Wordle {
         Wordle {
             word: String::from(""),
             all_words: vec![],
-            history: vec![],
+            history: Vec::with_capacity(6), 
             word_is_guessed: false,
             game_is_over: false,
         }
@@ -81,7 +81,7 @@ impl Wordle {
             .choose(&mut rand::thread_rng())
             .unwrap()
             .clone();
-        self.word = "hello".to_owned(); // random_word;
+        self.word = random_word;
     }
 
     fn try_guess_word(&mut self, guess: &mut Guess) -> Result<(), ErrorKind> {
@@ -93,10 +93,6 @@ impl Wordle {
             return Err(ErrorKind::WordNotInWordlist);
         }
 
-        // Minus 1 because of current guess
-        if self.history.len() >= 5 {
-            return Err(ErrorKind::GameIsOver);
-        }
 
         for c_in_guess in guess.word.chars() {
             let count_c_in_yellow = guess
@@ -132,6 +128,11 @@ impl Wordle {
             } else {
                 guess.green_chars.push('\0');
             }
+        }
+
+        // Minus 1 because of current guess
+        if self.history.len() >= 5 {
+            return Err(ErrorKind::GameIsOver);
         }
 
         if guess.word == self.word {
@@ -175,8 +176,8 @@ fn main() {
                 println!("{guess}");
             }
             Err(error) => match error {
-                ErrorKind::WordNotFiveChars => println!("The word is not five characters"),
-                ErrorKind::WordNotInWordlist => println!("The word was not found in the wordlist"),
+                ErrorKind::WordNotFiveChars => println!("\x1b[91mThe word is not five characters\x1b[0m"),
+                ErrorKind::WordNotInWordlist => println!("\x1b[91mThe word was not found in the wordlist\x1b[0m"),
                 ErrorKind::GameIsOver => {
                     println!("{guess}");
                     wordle.game_is_over = true;
