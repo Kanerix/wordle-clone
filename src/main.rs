@@ -1,7 +1,7 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader, stdin, stdout, Write,};
-use std::fmt::{Display, Formatter};
 use rand::seq::SliceRandom;
+use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{stdin, stdout, BufRead, BufReader, Write};
 
 enum ErrorKind {
     WordNotInWordlist,
@@ -27,14 +27,14 @@ impl Guess {
 
 impl Display for Guess {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut output = Vec::with_capacity(5); 
+        let mut output = Vec::with_capacity(5);
         for i in 0..5 {
             if self.green_chars[i] != '\0' {
-                output.push(format!("green: {} ", self.green_chars[i]));
+                output.push(format!("\x1b[92m{}\x1b[0m", self.green_chars[i]));
             } else if self.yellow_chars[i] != '\0' {
-                output.push(format!("yellow: {} ", self.yellow_chars[i]));
+                output.push(format!("\x1b[93m{}\x1b[0m", self.yellow_chars[i]));
             } else {
-                output.push(format!("white: {} ", self.word.chars().nth(i).unwrap()));
+                output.push(format!("{}", self.word.chars().nth(i).unwrap()));
             }
         }
 
@@ -81,10 +81,10 @@ impl Wordle {
             .choose(&mut rand::thread_rng())
             .unwrap()
             .clone();
-        self.word = random_word;
+        self.word = "hello".to_owned(); // random_word;
     }
 
-    fn try_guess_word(&mut self, guess: &mut Guess) -> Result<(), ErrorKind> { 
+    fn try_guess_word(&mut self, guess: &mut Guess) -> Result<(), ErrorKind> {
         if guess.word.len() != 5 {
             return Err(ErrorKind::WordNotFiveChars);
         }
@@ -93,12 +93,32 @@ impl Wordle {
             return Err(ErrorKind::WordNotInWordlist);
         }
 
-        if self.history.len() > 6 {
+        // Minus 1 because of current guess
+        if self.history.len() >= 5 {
             return Err(ErrorKind::GameIsOver);
         }
 
         for c_in_guess in guess.word.chars() {
-            if self.word.contains(c_in_guess) {
+            let count_c_in_yellow = guess
+                .yellow_chars
+                .clone()
+                .into_iter()
+                .filter(|&c| c == c_in_guess)
+                .count();
+
+            let count_c_in_green = guess
+                .green_chars
+                .clone()
+                .into_iter()
+                .filter(|&c| c == c_in_guess)
+                .count();
+
+            let count_c_in_word = self.word.matches(c_in_guess).count();
+
+            if self.word.contains(c_in_guess)
+                && count_c_in_yellow <= count_c_in_word
+                && count_c_in_green < count_c_in_word
+            {
                 guess.yellow_chars.push(c_in_guess);
             } else {
                 guess.yellow_chars.push('\0');
@@ -129,20 +149,22 @@ fn main() {
     wordle.load_words_from_file();
     wordle.pick_random_word();
 
-    print!("\x1b[2J\x1b[1;1H");
-
-    println!("
-         __          __           _ _      
-         \\ \\        / /          | | |     
-          \\ \\  /\\  / /__  _ __ __| | | ___ 
-           \\ \\/  \\/ / _ \\| '__/ _` | |/ _ \
-            \\  /\\  / (_) | | | (_| | |  __/
-             \\/  \\/ \\___/|_|  \\__,_|_|\\___|
-    ");
+    println!(
+        "
+ __          __           _ _      
+ \\ \\        / /          | | |     
+  \\ \\  /\\  / /__  _ __ __| | | ___ 
+   \\ \\/  \\/ / _ \\| '__/ _` | |/ _ \\
+    \\  /\\  / (_) | | | (_| | |  __/
+     \\/  \\/ \\___/|_|  \\__,_|_|\\___|
+    "
+    );
 
     while !wordle.word_is_guessed && !wordle.game_is_over {
-        stdout().write_all(b"Guess the word: ").unwrap();
+        let output = format!("You have {} guesses left. Take a guess: ", 6 - wordle.history.len());
+        stdout().write_all(output.as_bytes()).unwrap();
         stdout().flush().unwrap();
+
         let mut guess = Guess::new();
         stdin().read_line(&mut guess.word).unwrap();
 
@@ -150,19 +172,25 @@ fn main() {
 
         match wordle.try_guess_word(&mut guess) {
             Ok(()) => {
-                println!("{}", guess);
-            },
-            Err(error) => match error {
-                ErrorKind::WordNotFiveChars => println!("Word not five characters"),
-                ErrorKind::WordNotInWordlist => println!("Word not found in the wordlist"),
-                ErrorKind::GameIsOver => wordle.game_is_over = true,
+                println!("{guess}");
             }
+            Err(error) => match error {
+                ErrorKind::WordNotFiveChars => println!("The word is not five characters"),
+                ErrorKind::WordNotInWordlist => println!("The word was not found in the wordlist"),
+                ErrorKind::GameIsOver => {
+                    println!("{guess}");
+                    wordle.game_is_over = true;
+                }
+            },
         };
     }
 
     if wordle.word_is_guessed {
         println!("You guessed the word \"{}\". Congrats!", wordle.word);
     } else {
-        println!("You didn't guess the word. The word was \"{}\".", wordle.word);
+        println!(
+            "You didn't guess the word. The word was \"{}\".",
+            wordle.word
+        );
     }
 }
