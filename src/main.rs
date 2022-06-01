@@ -93,6 +93,15 @@ impl Wordle {
             return Err(ErrorKind::WordNotInWordlist);
         }
 
+        let mut words_zip = self.word.chars().zip(guess.word.chars());
+        while let Some(words_zip) = words_zip.next() {
+            if words_zip.0 == words_zip.1 {
+                guess.green_chars.push(words_zip.1);
+            } else {
+                guess.green_chars.push('\0');
+            }
+        }
+
 
         for c_in_guess in guess.word.chars() {
             let count_c_in_yellow = guess
@@ -118,15 +127,6 @@ impl Wordle {
                 guess.yellow_chars.push(c_in_guess);
             } else {
                 guess.yellow_chars.push('\0');
-            }
-        }
-
-        let mut words_zip = self.word.chars().zip(guess.word.chars());
-        while let Some(words_zip) = words_zip.next() {
-            if words_zip.0 == words_zip.1 {
-                guess.green_chars.push(words_zip.1);
-            } else {
-                guess.green_chars.push('\0');
             }
         }
 
